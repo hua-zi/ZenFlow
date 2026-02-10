@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenFlow - 心流任务管理 (多用户版)</title>
+    
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <!-- 引入 Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #F5F5F0;
+            --card-bg: #FFFFFF;
+            --text-primary: #4A4A4A;
+            --text-secondary: #9CA3AF;
+            --accent-sage: #A3B18A;
+            --accent-clay: #D4A373;
+            --priority-high: #E76F51;
+            --priority-med: #457B9D;
+            --priority-low: #A3B18A;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            background-image: radial-gradient(#D6D6D0 1px, transparent 1px);
+            background-size: 20px 20px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #E5E5E5; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #D4D4D4; }
+
+        /* 动效 */
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; }
+        .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .zoom-in { animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        .blur-bg { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+
+        /* 拖拽样式 */
+        .sortable-ghost { opacity: 0.4; background-color: #F3F4F6; border: 2px dashed #D1D5DB; }
+        .sortable-drag { cursor: grabbing; opacity: 1; background: white; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
+
+        /* 输入框去默认样式 */
+        .no-outline-input:focus { outline: none; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="selection:bg-stone-200">
+
+    <!-- 登录/欢迎界面 -->
+    <div id="login-screen" class="fixed inset-0 z-50 bg-[#F5F5F0] flex flex-col items-center justify-center fade-in">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] p-10 border border-stone-100 zoom-in">
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 bg-stone-800 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+            </div>
+            <h2 class="text-2xl font-semibold text-center text-stone-800 mb-2">欢迎来到 ZenFlow</h2>
+            <p class="text-center text-stone-400 mb-8">请输入你的名字，开启心流之旅</p>
+            
+            <div class="space-y-4">
+                <input type="text" id="login-input" 
+                    class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#A3B18A]/50 transition-all text-center text-lg placeholder-stone-300"
+                    placeholder="你的名字..." autocomplete="off">
+                <button id="login-btn" 
+                    class="w-full bg-stone-800 text-white rounded-xl py-3 font-medium hover:bg-stone-700 active:scale-[0.98] transition-all shadow-lg shadow-stone-300">
+                    进入心流
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顶部导航 -->
+    <header class="fixed top-0 w-full z-30 bg-[#F5F5F0]/90 backdrop-blur-sm border-b border-stone-200/50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-stone-800 rounded-xl flex items-center justify-center text-white shadow-lg shadow-stone-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-semibold text-stone-800 tracking-tight">ZenFlow</h1>
+                    <p class="text-xs text-stone-500 font-medium tracking-wide" id="date-display">...</p>
+                </div>
+            </div>
+
+            <!-- 用户区域与仪表盘 -->
+            <div class="flex items-center gap-6">
+                <!-- 仪表盘 -->
+                <div class="hidden md:flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-100">
+                    <div class="relative w-10 h-10 flex items-center justify-center">
+                        <svg class="transform -rotate-90 w-10 h-10">
+                            <circle cx="20" cy="20" r="16" stroke="#E5E7EB" stroke-width="4" fill="transparent"></circle>
+                            <circle id="progress-circle" cx="20" cy="20" r="16" stroke="#A3B18A" stroke-width="4" fill="transparent"
+                                stroke-dasharray="100" stroke-dashoffset="100" stroke-linecap="round" class="transition-all duration-1000 ease-out"></circle>
+                        </svg>
+                        <span id="progress-text" class="absolute text-[10px] font-bold text-stone-600">0%</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-stone-400">今日完成度</span>
+                        <span class="text-sm font-semibold text-stone-700" id="task-stats">0/0</span>
+                    </div>
+                </div>
+
+                <!-- 用户头像/登出 -->
+                <div class="relative group">
+                    <button class="flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-sm border border-stone-100 hover:shadow-md transition-all pr-4" id="user-btn">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-[#A3B18A] to-[#D4A373] text-white flex items-center justify-center text-sm font-bold" id="user-avatar">
+                            U
+                        </div>
+                        <span class="text-sm font-medium text-stone-700 hidden sm:block" id="username-display">User</span>
+                    </button>
+                    <!-- 下拉菜单 -->
+                    <div class="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-stone-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform translate-y-2 group-hover:translate-y-0">
+                        <button id="logout-btn" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                            退出登录
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容 -->
+    <main class="pt-28 pb-12 px-6 max-w-7xl mx-auto">
+        
+        <!-- 输入区域 -->
+        <div class="mb-10 max-w-2xl mx-auto fade-in">
+            <div class="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 flex items-center relative group focus-within:ring-2 focus-within:ring-[#A3B18A]/30 transition-all">
+                <div class="pl-4 pr-3 text-stone-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                <input type="text" id="task-input" 
+                    class="w-full bg-transparent border-none focus:ring-0 text-stone-700 placeholder-stone-300 py-3 text-lg" 
+                    placeholder="添加新任务... (按 Enter 添加)"
+                    autocomplete="off">
+                
+                <div class="flex items-center gap-1 pr-2 pl-4 border-l border-stone-100">
+                    <button id="add-btn" class="w-9 h-9 rounded-lg bg-stone-800 text-white flex items-center justify-center hover:bg-stone-700 active:scale-95 transition-all shadow-md" title="添加任务">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <button class="priority-btn p-2 rounded-lg hover:bg-stone-50 transition-colors text-stone-400 hover:text-[#E76F51]" data-priority="high" title="高优先级">🔥</button>
+                    <button class="priority-btn p-2 rounded-lg hover:bg-stone-50 transition-colors text-stone-400 hover:text-[#457B9D]" data-priority="medium" title="中优先级">🌊</button>
+                    <button class="priority-btn p-2 rounded-lg hover:bg-stone-50 transition-colors text-[#A3B18A] bg-stone-50" data-priority="low" title="低优先级">🍃</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 看板区域 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 h-full">
+            <!-- 待办列 -->
+            <section class="flex flex-col h-full">
+                <div class="flex items-center justify-between mb-4 px-2">
+                    <h2 class="font-semibold text-stone-600 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-stone-400"></span> 待办
+                    </h2>
+                    <span id="count-todo" class="bg-stone-200 text-stone-600 text-xs px-2 py-0.5 rounded-full font-medium">0</span>
+                </div>
+                <div id="col-todo" class="flex-1 bg-stone-100/50 rounded-2xl p-4 min-h-[200px] transition-colors duration-300 border border-transparent hover:border-stone-200"></div>
+            </section>
+
+            <!-- 进行中列 -->
+            <section class="flex flex-col h-full">
+                <div class="flex items-center justify-between mb-4 px-2">
+                    <h2 class="font-semibold text-stone-600 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#D4A373]"></span> 进行中
+                    </h2>
+                    <span id="count-inprogress" class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-medium">0</span>
+                </div>
+                <div id="col-inprogress" class="flex-1 bg-[#FDF6E3]/30 rounded-2xl p-4 min-h-[200px] transition-colors duration-300 border border-transparent hover:border-orange-200/50"></div>
+            </section>
+
+            <!-- 已完成列 -->
+            <section class="flex flex-col h-full">
+                <div class="flex items-center justify-between mb-4 px-2">
+                    <h2 class="font-semibold text-stone-600 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#A3B18A]"></span> 已完成
+                    </h2>
+                    <span id="count-done" class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">0</span>
+                </div>
+                <div id="col-done" class="flex-1 bg-[#A3B18A]/10 rounded-2xl p-4 min-h-[200px] transition-colors duration-300 border border-transparent hover:border-green-200/50"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 空状态 -->
+    <div id="empty-state" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 text-center pointer-events-none opacity-60 transition-opacity duration-500 hidden">
+        <p class="text-stone-400 font-light italic text-lg">“静待花开”</p>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast" class="fixed top-24 left-1/2 transform -translate-x-1/2 bg-stone-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 translate-y-[-100px] opacity-0 transition-all duration-500 z-50">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#A3B18A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="text-sm font-medium" id="toast-msg">已保存</span>
+    </div>
+
+    <!-- 专注/编辑 模态框 -->
+    <div id="focus-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-stone-900/40 blur-bg transition-opacity duration-300" id="modal-backdrop"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-300" id="modal-content">
+                <div class="h-2 bg-gradient-to-r from-[#A3B18A] to-[#D4A373]"></div>
+                <div class="p-8">
+                    <!-- 顶部工具栏 -->
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="flex flex-col items-center cursor-pointer select-none group" id="modal-priority-btn" title="点击切换优先级">
+                            <span id="modal-priority-icon" class="text-3xl transition-transform active:scale-90 group-hover:opacity-80"></span>
+                            <span class="text-[10px] text-stone-300 mt-1">点击切换</span>
+                        </div>
+                        <button id="close-modal" class="text-stone-400 hover:text-stone-600 transition-colors p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- 标题与标签编辑 -->
+                    <div class="mb-2 relative group">
+                        <input type="text" id="modal-title-input" 
+                            class="w-full text-2xl font-semibold text-stone-800 bg-transparent border-b-2 border-transparent focus:border-[#A3B18A]/50 transition-colors pb-1 no-outline-input placeholder-stone-300"
+                            placeholder="任务标题">
+                    </div>
+                    <div class="flex items-center gap-2 mb-8">
+                        <input type="text" id="modal-tag-input" 
+                            class="text-sm text-[#457B9D] bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 focus:border-[#457B9D] focus:outline-none transition-colors w-1/2" 
+                            placeholder="标签 (无#)">
+                    </div>
+
+                    <!-- 番茄钟区域 -->
+                    <div class="flex flex-col items-center justify-center py-8 bg-stone-50 rounded-2xl border border-stone-100 mb-6">
+                        <!-- 倒计时显示与编辑 -->
+                        <div class="relative group cursor-pointer mb-2" id="timer-trigger" title="点击修改时长">
+                            <div id="timer-display" class="text-6xl font-light text-stone-700 tabular-nums tracking-tighter transition-colors">25:00</div>
+                            <input type="number" id="timer-input" 
+                                class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-6xl font-light text-stone-800 bg-stone-200/80 w-48 rounded-lg py-2 focus:outline-none focus:ring-2 focus:ring-[#A3B18A] z-10" 
+                                min="1" max="180">
+                            <div class="text-[10px] text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity text-center mt-1">点击修改时长(分钟)</div>
+                        </div>
+                        
+                        <!-- 累计时间显示 -->
+                        <div class="text-sm font-medium text-[#A3B18A] mb-6 flex items-center gap-2 bg-white px-4 py-1 rounded-full shadow-sm border border-stone-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span id="total-time-display">累计: 0m 0s</span>
+                        </div>
+
+                        <!-- 控制按钮 -->
+                        <div class="flex gap-4">
+                            <button id="timer-toggle" class="w-12 h-12 rounded-full bg-stone-800 text-white flex items-center justify-center hover:bg-stone-700 transition-all hover:scale-105 shadow-lg shadow-stone-300">
+                                <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                </svg>
+                                <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <button id="timer-reset" class="w-12 h-12 rounded-full bg-white text-stone-400 border border-stone-200 flex items-center justify-center hover:bg-stone-50 transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 底部信息 -->
+                    <div class="flex justify-between items-center text-xs text-stone-400">
+                        <span>创建于 <span id="modal-date"></span></span>
+                        <button id="delete-task-btn" class="text-red-400 hover:text-red-600 transition-colors flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            删除任务
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STATE = {
+            currentUser: null,
+            tasks: [],
+            currentPriority: 'low', 
+            timer: null,
+            timerInterval: null,
+            isTimerRunning: false,
+            timerDuration: 25 * 60,
+            defaultTimerMinutes: 25,
+            currentTaskId: null
+        };
+
+        const elements = {
+            // Login
+            loginScreen: document.getElementById('login-screen'),
+            loginInput: document.getElementById('login-input'),
+            loginBtn: document.getElementById('login-btn'),
+            userAvatar: document.getElementById('user-avatar'),
+            usernameDisplay: document.getElementById('username-display'),
+            logoutBtn: document.getElementById('logout-btn'),
+            
+            // Main
+            input: document.getElementById('task-input'),
+            addBtn: document.getElementById('add-btn'), 
+            colTodo: document.getElementById('col-todo'),
+            colInProgress: document.getElementById('col-inprogress'),
+            colDone: document.getElementById('col-done'),
+            priorityBtns: document.querySelectorAll('.priority-btn'),
+            emptyState: document.getElementById('empty-state'),
+            toast: document.getElementById('toast'),
+            toastMsg: document.getElementById('toast-msg'),
+            
+            // Modal
+            modal: document.getElementById('focus-modal'),
+            modalContent: document.getElementById('modal-content'),
+            closeModal: document.getElementById('close-modal'),
+            modalTitleInput: document.getElementById('modal-title-input'),
+            modalTagInput: document.getElementById('modal-tag-input'),
+            modalPriorityBtn: document.getElementById('modal-priority-btn'),
+            modalPriorityIcon: document.getElementById('modal-priority-icon'),
+            modalDate: document.getElementById('modal-date'),
+            
+            // Timer
+            timerDisplay: document.getElementById('timer-display'),
+            timerInput: document.getElementById('timer-input'),
+            timerTrigger: document.getElementById('timer-trigger'),
+            totalTimeDisplay: document.getElementById('total-time-display'),
+            timerToggle: document.getElementById('timer-toggle'),
+            timerReset: document.getElementById('timer-reset'),
+            playIcon: document.getElementById('play-icon'),
+            pauseIcon: document.getElementById('pause-icon'),
+            deleteTaskBtn: document.getElementById('delete-task-btn'),
+            
+            // Stats
+            progressCircle: document.getElementById('progress-circle'),
+            progressText: document.getElementById('progress-text'),
+            taskStats: document.getElementById('task-stats'),
+            countTodo: document.getElementById('count-todo'),
+            countInProgress: document.getElementById('count-inprogress'),
+            countDone: document.getElementById('count-done'),
+            dateDisplay: document.getElementById('date-display')
+        };
+
+        function init() {
+            checkAuth();
+            updateDate();
+            setupEventListeners();
+        }
+
+        // --- Auth Logic ---
+        function checkAuth() {
+            const user = localStorage.getItem('zenflow_current_user');
+            if (user) {
+                STATE.currentUser = user;
+                elements.loginScreen.style.display = 'none';
+                elements.userAvatar.textContent = user.charAt(0).toUpperCase();
+                elements.usernameDisplay.textContent = user;
+                loadTasks();
+                setupDragAndDrop();
+                renderAll();
+            } else {
+                elements.loginScreen.style.display = 'flex';
+            }
+        }
+
+        function login() {
+            const username = elements.loginInput.value.trim();
+            if (username) {
+                STATE.currentUser = username;
+                localStorage.setItem('zenflow_current_user', username);
+                elements.loginScreen.style.display = 'none';
+                elements.userAvatar.textContent = username.charAt(0).toUpperCase();
+                elements.usernameDisplay.textContent = username;
+                
+                // Load user data
+                loadTasks();
+                setupDragAndDrop();
+                renderAll();
+            }
+        }
+
+        function logout() {
+            if(confirm("确定要退出登录吗？当前任务数据将保留，下次登录可恢复。")) {
+                localStorage.removeItem('zenflow_current_user');
+                STATE.currentUser = null;
+                STATE.tasks = [];
+                location.reload(); // Simple reload to clear everything
+            }
+        }
+
+        function getStorageKey() {
+            return `zenflow_tasks_${STATE.currentUser}`;
+        }
+
+        // --- Data Logic ---
+        function loadTasks() {
+            const stored = localStorage.getItem(getStorageKey());
+            if (stored) {
+                STATE.tasks = JSON.parse(stored);
+                STATE.tasks.forEach(t => {
+                    if (typeof t.timeSpent === 'undefined') t.timeSpent = 0;
+                });
+            } else {
+                STATE.tasks = [];
+            }
+        }
+
+        function saveData(showToastMsg = true) {
+            localStorage.setItem(getStorageKey(), JSON.stringify(STATE.tasks));
+            updateStats();
+            if(showToastMsg) showToast('已保存至本地');
+        }
+
+        function addTask(title) {
+            if (!title.trim()) return;
+
+            let tag = '';
+            let cleanTitle = title;
+            const tagMatch = title.match(/#(\w+)/);
+            if (tagMatch) {
+                tag = tagMatch[1];
+                cleanTitle = title.replace(tagMatch[0], '').trim();
+            }
+
+            const newTask = {
+                id: 't' + Date.now(),
+                title: cleanTitle,
+                tag: tag,
+                priority: STATE.currentPriority,
+                status: 'todo',
+                timeSpent: 0,
+                createdAt: new Date().toISOString()
+            };
+
+            STATE.tasks.push(newTask);
+            saveData();
+            renderTask(newTask);
+            updateEmptyState();
+            elements.input.value = '';
+            elements.input.focus();
+        }
+
+        // --- DOM Updates (Bug Fix: Avoid Duplicate InnerHTML) ---
+        function updateTaskField(id, field, value) {
+            const taskIndex = STATE.tasks.findIndex(t => t.id === id);
+            if (taskIndex === -1) return;
+            
+            STATE.tasks[taskIndex][field] = value;
+            saveData(false);
+            updateCardDOM(STATE.tasks[taskIndex]);
+        }
+
+        function updateCardDOM(task) {
+            const card = document.querySelector(`.task-card[data-id="${task.id}"]`);
+            if (!card) return;
+
+            // Helper to find elements
+            const getPrio = (p) => ({ high: '🔥', medium: '🌊', low: '🍃', color: 'text-[#E76F51]', med: 'text-[#457B9D]', low: 'text-[#A3B18A]', label: '高/中/低' });
+            
+            const map = { high: '🔥', medium: '🌊', low: '🍃' };
+            const colorMap = { high: 'text-[#E76F51]', medium: 'text-[#457B9D]', low: 'text-[#A3B18A]' };
+            const labelMap = { high: '高', medium: '中', low: '低' };
+
+            // Update Priority Info
+            const prioLine = card.querySelector('.task-priority-line');
+            prioLine.textContent = `${map[task.priority]} ${labelMap[task.priority]}`;
+            prioLine.className = `text-xs font-semibold mb-1 ${colorMap[task.priority]} task-priority-line`;
+
+            // Update Title
+            const titleEl = card.querySelector('.task-title');
+            titleEl.textContent = task.title;
+
+            // Update Tag
+            const tagEl = card.querySelector('.task-tag');
+            if (task.tag) {
+                tagEl.style.display = 'inline-block';
+                tagEl.textContent = `#${task.tag}`;
+            } else {
+                tagEl.style.display = 'none';
+            }
+
+            // Update Time
+            const timeEl = card.querySelector('.task-time-display');
+            timeEl.textContent = formatTimeSimple(task.timeSpent);
+        }
+
+        function togglePriority(id) {
+            const task = STATE.tasks.find(t => t.id === id);
+            if (!task) return;
+            const cycle = ['low', 'medium', 'high'];
+            const nextIndex = (cycle.indexOf(task.priority) + 1) % cycle.length;
+            task.priority = cycle[nextIndex];
+            saveData(false);
+            renderModalPriority(task.priority);
+            updateCardDOM(task);
+        }
+
+        function formatTimeSimple(seconds) {
+            if (seconds < 60) return `${seconds}s`;
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            if (h > 0) return `${h}h ${m}m`;
+            return `${m}m`;
+        }
+
+        function formatTimeDetailed(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${pad(h)}:${pad(m)}:${pad(s)}`;
+        }
+
+        // --- Rendering ---
+        function deleteTask(id) {
+            if (confirm('确定要删除这个任务吗？')) {
+                STATE.tasks = STATE.tasks.filter(t => t.id !== id);
+                saveData();
+                renderAll();
+                closeModal();
+            }
+        }
+
+        function renderAll() {
+            elements.colTodo.innerHTML = '';
+            elements.colInProgress.innerHTML = '';
+            elements.colDone.innerHTML = '';
+
+            STATE.tasks.forEach(task => {
+                renderTask(task);
+            });
+
+            updateStats();
+            updateEmptyState();
+        }
+
+        function renderTask(task) {
+            if (document.querySelector(`.task-card[data-id="${task.id}"]`)) return;
+
+            const card = document.createElement('div');
+            card.className = `task-card bg-white p-4 rounded-xl shadow-sm border border-stone-100 mb-3 cursor-grab hover:shadow-md transition-all duration-200 group slide-up relative`;
+            card.setAttribute('data-id', task.id);
+            
+            const map = { high: '🔥', medium: '🌊', low: '🍃' };
+            const colorMap = { high: 'text-[#E76F51]', medium: 'text-[#457B9D]', low: 'text-[#A3B18A]' };
+            const labelMap = { high: '高', medium: '中', low: '低' };
+
+            card.innerHTML = `
+                <div class="flex justify-between items-start gap-2">
+                    <!-- Content Area -->
+                    <div class="flex-1 pr-2 cursor-pointer" onclick="openFocusMode('${task.id}')">
+                        <div class="task-priority-line text-xs font-semibold mb-1 ${colorMap[task.priority]}">${map[task.priority]} ${labelMap[task.priority]}</div>
+                        <h4 class="task-title text-stone-700 font-medium text-sm leading-relaxed break-words">${escapeHtml(task.title)}</h4>
+                        <span class="task-tag inline-block bg-stone-100 text-stone-500 text-[10px] px-2 py-0.5 rounded-md tracking-wide uppercase font-medium mr-2 mt-1" style="display: ${task.tag ? 'inline-block' : 'none'}">#${task.tag}</span>
+                    </div>
+                    
+                    <!-- Actions Area (Delete + Time) -->
+                    <div class="flex flex-col items-end gap-2 min-w-[3rem]">
+                        <button class="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-400 transition-opacity p-1" onclick="deleteTask('${task.id}')" title="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div class="task-time-display flex items-center gap-1 text-xs font-medium text-stone-400 bg-stone-50 px-2 py-1 rounded-md group-hover:bg-stone-100 transition-colors whitespace-nowrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="task-time-text">${formatTimeSimple(task.timeSpent)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (task.status === 'todo') elements.colTodo.appendChild(card);
+            else if (task.status === 'inprogress') elements.colInProgress.appendChild(card);
+            else if (task.status === 'done') elements.colDone.appendChild(card);
+        }
+
+        function updateStats() {
+            const total = STATE.tasks.length;
+            const done = STATE.tasks.filter(t => t.status === 'done').length;
+            const percentage = total === 0 ? 0 : Math.round((done / total) * 100);
+
+            elements.taskStats.textContent = `${done}/${total}`;
+            elements.progressText.textContent = `${percentage}%`;
+            
+            const radius = 16;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference - (percentage / 100) * circumference;
+            elements.progressCircle.style.strokeDashoffset = offset;
+            
+            elements.countTodo.textContent = STATE.tasks.filter(t => t.status === 'todo').length;
+            elements.countInProgress.textContent = STATE.tasks.filter(t => t.status === 'inprogress').length;
+            elements.countDone.textContent = done;
+        }
+
+        function updateEmptyState() {
+            const hasTasks = STATE.tasks.length > 0;
+            if (!hasTasks) {
+                elements.emptyState.classList.remove('hidden');
+                setTimeout(() => elements.emptyState.classList.remove('opacity-0'), 10);
+            } else {
+                elements.emptyState.classList.add('opacity-0');
+                setTimeout(() => elements.emptyState.classList.add('hidden'), 500);
+            }
+        }
+
+        function setupDragAndDrop() {
+            const setupColumn = (colId) => {
+                new Sortable(document.getElementById(colId), {
+                    group: 'kanban',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag',
+                    delay: 100,
+                    delayOnTouchOnly: true,
+                    onEnd: function (evt) {
+                        const itemEl = evt.item;
+                        const newStatus = evt.to.id.replace('col-', ''); 
+                        const taskId = itemEl.getAttribute('data-id');
+                        updateTaskStatus(taskId, newStatus);
+                    }
+                });
+            };
+            setupColumn('col-todo');
+            setupColumn('col-inprogress');
+            setupColumn('col-done');
+        }
+
+        function updateTaskStatus(id, newStatus) {
+            const task = STATE.tasks.find(t => t.id === id);
+            if (task && task.status !== newStatus) {
+                task.status = newStatus;
+                saveData();
+                updateStats();
+                updateEmptyState();
+            }
+        }
+
+        // --- Modal Logic ---
+        window.openFocusMode = function(id) {
+            const task = STATE.tasks.find(t => t.id === id);
+            if (!task) return;
+            STATE.currentTaskId = id;
+
+            elements.modalTitleInput.value = task.title;
+            elements.modalTagInput.value = task.tag;
+            elements.modalDate.textContent = new Date(task.createdAt).toLocaleDateString();
+            
+            renderModalPriority(task.priority);
+            STATE.timerDuration = STATE.defaultTimerMinutes * 60; 
+            updateTimerDisplay();
+            updateTotalTimeDisplay();
+
+            elements.modal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.modalContent.classList.remove('scale-95', 'opacity-0');
+                elements.modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            pauseTimer();
+        };
+
+        function updateTotalTimeDisplay() {
+            const task = STATE.tasks.find(t => t.id === STATE.currentTaskId);
+            if (!task) return;
+            elements.totalTimeDisplay.textContent = `累计: ${formatTimeSimple(task.timeSpent)}`;
+        }
+
+        function renderModalPriority(p) {
+            const map = { high: '🔥', medium: '🌊', low: '🍃' };
+            elements.modalPriorityIcon.textContent = map[p];
+            if (p === 'high') elements.modalPriorityIcon.style.filter = "drop-shadow(0 0 2px #E76F51)";
+            else if (p === 'medium') elements.modalPriorityIcon.style.filter = "drop-shadow(0 0 2px #457B9D)";
+            else elements.modalPriorityIcon.style.filter = "none";
+        }
+
+        function closeModal() {
+            elements.modalContent.classList.remove('scale-100', 'opacity-100');
+            elements.modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                elements.modal.classList.add('hidden');
+                pauseTimer();
+                STATE.currentTaskId = null;
+            }, 300);
+        }
+
+        // --- Timer Logic ---
+        function toggleTimer() {
+            if (STATE.isTimerRunning) pauseTimer();
+            else startTimer();
+        }
+
+        function startTimer() {
+            STATE.isTimerRunning = true;
+            elements.playIcon.classList.add('hidden');
+            elements.pauseIcon.classList.remove('hidden');
+            
+            STATE.timerInterval = setInterval(() => {
+                if (STATE.timerDuration > 0) {
+                    STATE.timerDuration--;
+                    updateTimerDisplay();
+                    
+                    const task = STATE.tasks.find(t => t.id === STATE.currentTaskId);
+                    if (task) {
+                        task.timeSpent++;
+                        updateTotalTimeDisplay();
+                        if (task.timeSpent % 5 === 0) saveData(false); 
+                        updateCardDOM(task); 
+                    }
+                } else {
+                    pauseTimer();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            STATE.isTimerRunning = false;
+            elements.playIcon.classList.remove('hidden');
+            elements.pauseIcon.classList.add('hidden');
+            clearInterval(STATE.timerInterval);
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            STATE.timerDuration = STATE.defaultTimerMinutes * 60;
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(STATE.timerDuration / 60).toString().padStart(2, '0');
+            const s = (STATE.timerDuration % 60).toString().padStart(2, '0');
+            elements.timerDisplay.textContent = `${m}:${s}`;
+        }
+
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            // Login
+            elements.loginBtn.addEventListener('click', login);
+            elements.loginInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') login();
+            });
+            elements.logoutBtn.addEventListener('click', logout);
+
+            // Add Task
+            elements.input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (elements.input.value.trim()) addTask(elements.input.value.trim());
+                }
+            });
+            elements.addBtn.addEventListener('click', () => {
+                if (elements.input.value.trim()) addTask(elements.input.value.trim());
+            });
+
+            // Priority
+            elements.priorityBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    elements.priorityBtns.forEach(b => {
+                        b.classList.remove('bg-stone-50', 'text-[#A3B18A]', 'text-[#457B9D]', 'text-[#E76F51]');
+                        b.classList.add('text-stone-400');
+                    });
+                    const p = btn.dataset.priority;
+                    STATE.currentPriority = p;
+                    btn.classList.remove('text-stone-400');
+                    if (p === 'high') btn.classList.add('text-[#E76F51]', 'bg-stone-50');
+                    if (p === 'medium') btn.classList.add('text-[#457B9D]', 'bg-stone-50');
+                    if (p === 'low') btn.classList.add('text-[#A3B18A]', 'bg-stone-50');
+                });
+            });
+
+            // Edit
+            elements.modalTitleInput.addEventListener('input', (e) => {
+                if (STATE.currentTaskId) updateTaskField(STATE.currentTaskId, 'title', e.target.value);
+            });
+            elements.modalTagInput.addEventListener('input', (e) => {
+                if (STATE.currentTaskId) updateTaskField(STATE.currentTaskId, 'tag', e.target.value);
+            });
+            elements.modalPriorityBtn.addEventListener('click', () => {
+                if (STATE.currentTaskId) togglePriority(STATE.currentTaskId);
+            });
+
+            // Timer Edit
+            elements.timerTrigger.addEventListener('click', () => {
+                if (STATE.isTimerRunning) return;
+                elements.timerDisplay.classList.add('hidden');
+                elements.timerInput.classList.remove('hidden');
+                elements.timerInput.value = Math.floor(STATE.timerDuration / 60);
+                elements.timerInput.focus();
+            });
+            elements.timerInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmTimerEdit(); });
+            elements.timerInput.addEventListener('blur', confirmTimerEdit);
+
+            function confirmTimerEdit() {
+                let val = parseInt(elements.timerInput.value);
+                if (val && val > 0) {
+                    STATE.defaultTimerMinutes = val;
+                    STATE.timerDuration = val * 60;
+                }
+                elements.timerInput.classList.add('hidden');
+                elements.timerDisplay.classList.remove('hidden');
+                updateTimerDisplay();
+            }
+
+            elements.closeModal.addEventListener('click', closeModal);
+            elements.timerToggle.addEventListener('click', toggleTimer);
+            elements.timerReset.addEventListener('click', resetTimer);
+            elements.deleteTaskBtn.addEventListener('click', () => {
+                if (STATE.currentTaskId) deleteTask(STATE.currentTaskId);
+            });
+            document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+        }
+
+        function showToast(msg) {
+            if(msg) elements.toastMsg.textContent = msg;
+            elements.toast.classList.remove('translate-y-[-100px]', 'opacity-0');
+            setTimeout(() => {
+                elements.toast.classList.add('translate-y-[-100px]', 'opacity-0');
+            }, 2000);
+        }
+
+        function updateDate() {
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            elements.dateDisplay.textContent = new Date().toLocaleDateString('zh-CN', options);
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        init();
+    </script>
+</body>
+</html>
