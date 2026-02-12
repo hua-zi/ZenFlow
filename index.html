@@ -1019,6 +1019,7 @@
             elements.playIcon.classList.remove('hidden');
             elements.pauseIcon.classList.add('hidden');
             clearInterval(STATE.timerInterval);
+            updateTimeLogSummaryFromInputs();
         }
 
         function resetTimer() {
