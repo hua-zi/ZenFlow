@@ -205,6 +205,71 @@
                 <div id="col-done" class="flex-1 bg-[#A3B18A]/10 rounded-2xl p-4 min-h-[200px] transition-colors duration-300 border border-transparent hover:border-green-200/50"></div>
             </section>
         </div>
+        
+        <section class="mt-10 max-w-3xl mx-auto grid gap-6 md:grid-cols-2">
+            <div class="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-col">
+                        <span class="text-xs text-stone-400 tracking-wide">每日时间记录</span>
+                        <span class="text-sm font-semibold text-stone-700">睡觉 · 工作 · 娱乐</span>
+                    </div>
+                    <input type="date" id="time-log-date"
+                        class="text-xs bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-stone-600 focus:outline-none focus:ring-2 focus:ring-[#A3B18A]/40">
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-stone-500">睡觉</span>
+                        <div class="flex flex-col items-end gap-1">
+                            <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="time-log-sleep-start" inputmode="numeric" placeholder="23:00"
+                                        class="w-24 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#A3B18A]/40">
+                                </div>
+                                <span class="text-xs text-stone-400">-</span>
+                                <div class="flex items-center gap-1">
+                                    <input type="text" id="time-log-sleep-end" inputmode="numeric" placeholder="07:00"
+                                        class="w-24 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#A3B18A]/40">
+                                </div>
+                            </div>
+                            <span id="time-log-sleep-duration" class="text-[11px] text-stone-400">0分</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-stone-500">工作</span>
+                        <div class="flex items-center gap-1 text-xs text-stone-500">
+                            <span id="time-log-work-auto">0分</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-stone-500">娱乐</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="time-log-leisure" min="0" max="24" step="0.25"
+                                class="w-20 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-right text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#A3B18A]/40"
+                                placeholder="0">
+                            <span class="text-xs text-stone-400">小时</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs text-stone-400">
+                    <span id="time-log-summary" class="text-stone-500">今日总计 0 小时</span>
+                    <button id="time-log-save"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-stone-800 text-white text-xs font-medium hover:bg-stone-700 active:scale-95 transition-all">
+                        保存记录
+                    </button>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 flex flex-col justify-between">
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-stone-500 mb-1">今日时间分布</p>
+                    <p id="time-log-distribution" class="text-sm text-stone-600 leading-relaxed">
+                        还没有记录，可以先大致估算一下。
+                    </p>
+                </div>
+                <div class="mt-4 text-[11px] text-stone-400 leading-relaxed">
+                    <p>借鉴柳比歇夫时间管理法，用大块时间记录感受自己的节奏。</p>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- 空状态 -->
@@ -308,6 +373,7 @@
         const STATE = {
             currentUser: null,
             tasks: [],
+            dailyRecords: {},
             currentPriority: 'low', 
             timer: null,
             timerInterval: null,
@@ -365,7 +431,16 @@
             countTodo: document.getElementById('count-todo'),
             countInProgress: document.getElementById('count-inprogress'),
             countDone: document.getElementById('count-done'),
-            dateDisplay: document.getElementById('date-display')
+            dateDisplay: document.getElementById('date-display'),
+            timeLogDate: document.getElementById('time-log-date'),
+            timeLogSleepStart: document.getElementById('time-log-sleep-start'),
+            timeLogSleepEnd: document.getElementById('time-log-sleep-end'),
+            timeLogLeisure: document.getElementById('time-log-leisure'),
+            timeLogSave: document.getElementById('time-log-save'),
+            timeLogWorkAuto: document.getElementById('time-log-work-auto'),
+            timeLogSleepDuration: document.getElementById('time-log-sleep-duration'),
+            timeLogSummary: document.getElementById('time-log-summary'),
+            timeLogDistribution: document.getElementById('time-log-distribution')
         };
 
         function init() {
@@ -383,8 +458,10 @@
                 elements.userAvatar.textContent = user.charAt(0).toUpperCase();
                 elements.usernameDisplay.textContent = user;
                 loadTasks();
+                loadDailyRecords();
                 setupDragAndDrop();
                 renderAll();
+                initTimeLogDateForToday();
             } else {
                 elements.loginScreen.style.display = 'flex';
             }
@@ -401,8 +478,10 @@
                 
                 // Load user data
                 loadTasks();
+                loadDailyRecords();
                 setupDragAndDrop();
                 renderAll();
+                initTimeLogDateForToday();
             }
         }
 
@@ -419,6 +498,10 @@
             return `zenflow_tasks_${STATE.currentUser}`;
         }
 
+        function getDailyStorageKey() {
+            return `zenflow_daily_${STATE.currentUser}`;
+        }
+
         // --- Data Logic ---
         function loadTasks() {
             const stored = localStorage.getItem(getStorageKey());
@@ -432,10 +515,34 @@
             }
         }
 
+        function loadDailyRecords() {
+            if (!STATE.currentUser) {
+                STATE.dailyRecords = {};
+                return;
+            }
+            const stored = localStorage.getItem(getDailyStorageKey());
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    STATE.dailyRecords = parsed && typeof parsed === 'object' ? parsed : {};
+                } catch (e) {
+                    STATE.dailyRecords = {};
+                }
+            } else {
+                STATE.dailyRecords = {};
+            }
+        }
+
         function saveData(showToastMsg = true) {
             localStorage.setItem(getStorageKey(), JSON.stringify(STATE.tasks));
             updateStats();
             if(showToastMsg) showToast('已保存至本地');
+        }
+
+        function saveDailyRecords(showToastMsg = true) {
+            if (!STATE.currentUser) return;
+            localStorage.setItem(getDailyStorageKey(), JSON.stringify(STATE.dailyRecords || {}));
+            if (showToastMsg) showToast('时间记录已保存');
         }
 
         function addTask(title) {
@@ -654,6 +761,172 @@
             setupColumn('col-done');
         }
 
+        function getTodayDateStr() {
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function getSelectedDateKey() {
+            if (elements.timeLogDate && elements.timeLogDate.value) {
+                return elements.timeLogDate.value;
+            }
+            return getTodayDateStr();
+        }
+
+        function parseTimeToMinutes(value) {
+            if (!value || typeof value !== 'string') return null;
+            const parts = value.split(':');
+            if (parts.length !== 2) return null;
+            const h = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+            return h * 60 + m;
+        }
+
+        function computeSleepHoursFromRecord(rawRecord) {
+            if (!rawRecord) return 0;
+            if (typeof rawRecord.sleepHours === 'number') {
+                if (!isNaN(rawRecord.sleepHours) && rawRecord.sleepHours > 0) return rawRecord.sleepHours;
+            }
+            if (typeof rawRecord.sleep === 'number') {
+                if (!isNaN(rawRecord.sleep) && rawRecord.sleep > 0) return rawRecord.sleep;
+            }
+            const startMins = parseTimeToMinutes(rawRecord.sleepStart);
+            const endMins = parseTimeToMinutes(rawRecord.sleepEnd);
+            if (startMins === null || endMins === null) return 0;
+            let diff = endMins - startMins;
+            if (diff < 0) diff += 24 * 60;
+            const hours = diff / 60;
+            if (hours <= 0) return 0;
+            return Math.round(hours * 100) / 100;
+        }
+
+        function getWorkHoursForDate(dateKey) {
+            if (!Array.isArray(STATE.tasks)) return 0;
+            const dayStr = dateKey || getTodayDateStr();
+            const tasks = STATE.tasks.filter(t => {
+                if (!t || !t.createdAt) return false;
+                if (!t.tag) return false;
+                const tag = String(t.tag).trim();
+                if (tag !== '工作') return false;
+                const created = new Date(t.createdAt);
+                if (Number.isNaN(created.getTime())) return false;
+                const createdDateStr = created.toISOString().slice(0, 10);
+                return createdDateStr === dayStr;
+            });
+            const totalSeconds = tasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
+            const hours = totalSeconds / 3600;
+            if (hours <= 0) return 0;
+            return Math.round(hours * 100) / 100;
+        }
+
+        function getLeisureHoursFromRecord(rawRecord) {
+            if (!rawRecord) return 0;
+            if (typeof rawRecord.leisure === 'number') {
+                if (!isNaN(rawRecord.leisure) && rawRecord.leisure > 0) return rawRecord.leisure;
+            }
+            const v = parseFloat((rawRecord.leisure || '').toString().replace(',', '.'));
+            if (isNaN(v) || v <= 0) return 0;
+            return Math.round(v * 100) / 100;
+        }
+
+        function formatHoursToHM(hours) {
+            if (!hours || hours <= 0) return '0分';
+            const totalMinutes = Math.round(hours * 60);
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+            if (h > 0 && m > 0) return `${h}小时${m}分`;
+            if (h > 0) return `${h}小时`;
+            return `${m}分`;
+        }
+
+        function getComputedRecordForDate(dateKey) {
+            if (!STATE.dailyRecords) STATE.dailyRecords = {};
+            const key = dateKey || getSelectedDateKey();
+            const raw = STATE.dailyRecords[key] || {};
+            const sleep = computeSleepHoursFromRecord(raw);
+            const work = getWorkHoursForDate(key);
+            const leisure = getLeisureHoursFromRecord(raw);
+            return { sleep, work, leisure };
+        }
+
+        function updateTimeLogSummary(record) {
+            if (!elements.timeLogSummary || !elements.timeLogDistribution) return;
+            const sleep = typeof record.sleep === 'number' ? record.sleep : 0;
+            const work = typeof record.work === 'number' ? record.work : 0;
+            const leisure = typeof record.leisure === 'number' ? record.leisure : 0;
+            const total = sleep + work + leisure;
+            if (total <= 0) {
+                elements.timeLogSummary.textContent = '今日总计 0分';
+                elements.timeLogDistribution.textContent = '还没有记录，可以先大致估算一下';
+                if (elements.timeLogWorkAuto) elements.timeLogWorkAuto.textContent = '0分';
+                if (elements.timeLogSleepDuration) elements.timeLogSleepDuration.textContent = '0分';
+                return;
+            }
+            const sleepP = Math.round((sleep / total) * 100);
+            const workP = Math.round((work / total) * 100);
+            const leisureP = Math.round((leisure / total) * 100);
+            const totalText = formatHoursToHM(total);
+            const sleepText = formatHoursToHM(sleep);
+            const workText = formatHoursToHM(work);
+            const leisureText = formatHoursToHM(leisure);
+            elements.timeLogSummary.textContent = `今日总计 ${totalText}`;
+            elements.timeLogDistribution.textContent =
+                `睡觉 ${sleepText} (${sleepP}%) · 工作 ${workText} (${workP}%) · 娱乐 ${leisureText} (${leisureP}%)`;
+            if (elements.timeLogWorkAuto) elements.timeLogWorkAuto.textContent = workText;
+            if (elements.timeLogSleepDuration) elements.timeLogSleepDuration.textContent = sleepText;
+        }
+
+        function updateTimeLogSummaryFromInputs() {
+            const record = getComputedRecordForDate();
+            updateTimeLogSummary(record);
+        }
+
+        function syncTimeLogInputs() {
+            if (!elements.timeLogDate) return;
+            if (!STATE.dailyRecords) STATE.dailyRecords = {};
+            const key = getSelectedDateKey();
+            const record = STATE.dailyRecords[key] || {};
+            if (elements.timeLogSleepStart) elements.timeLogSleepStart.value = record.sleepStart || '';
+            if (elements.timeLogSleepEnd) elements.timeLogSleepEnd.value = record.sleepEnd || '';
+            if (elements.timeLogLeisure) {
+                const leisureVal = typeof record.leisure === 'number' ? record.leisure : (record.leisure || '');
+                elements.timeLogLeisure.value = leisureVal === 0 ? '' : leisureVal;
+            }
+            const computed = getComputedRecordForDate(key);
+            updateTimeLogSummary(computed);
+        }
+
+        function handleTimeLogSave() {
+            if (!STATE.currentUser) {
+                showToast('请先登录');
+                return;
+            }
+            if (!STATE.dailyRecords) STATE.dailyRecords = {};
+            const key = getSelectedDateKey();
+            const existing = STATE.dailyRecords[key] || {};
+            const sleepStart = elements.timeLogSleepStart ? elements.timeLogSleepStart.value : existing.sleepStart;
+            const sleepEnd = elements.timeLogSleepEnd ? elements.timeLogSleepEnd.value : existing.sleepEnd;
+            const leisureInput = elements.timeLogLeisure ? elements.timeLogLeisure.value : '';
+            let leisure = parseFloat((leisureInput || '').toString().replace(',', '.'));
+            if (isNaN(leisure) || leisure < 0) leisure = 0;
+            const record = {
+                sleepStart: sleepStart || '',
+                sleepEnd: sleepEnd || '',
+                leisure: leisure
+            };
+            record.sleepHours = computeSleepHoursFromRecord(record);
+            STATE.dailyRecords[key] = record;
+            saveDailyRecords();
+            const computed = getComputedRecordForDate(key);
+            updateTimeLogSummary(computed);
+        }
+
+        function initTimeLogDateForToday() {
+            if (!elements.timeLogDate) return;
+            elements.timeLogDate.value = getTodayDateStr();
+            syncTimeLogInputs();
+        }
+
         function updateTaskStatus(id, newStatus) {
             const task = STATE.tasks.find(t => t.id === id);
             if (task && task.status !== newStatus) {
@@ -836,6 +1109,51 @@
                 if (STATE.currentTaskId) deleteTask(STATE.currentTaskId);
             });
             document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+            if (elements.timeLogDate) {
+                elements.timeLogDate.addEventListener('change', () => {
+                    syncTimeLogInputs();
+                });
+            }
+            if (elements.timeLogSleepStart) {
+                elements.timeLogSleepStart.addEventListener('input', () => {
+                    const key = getSelectedDateKey();
+                    if (!STATE.dailyRecords) STATE.dailyRecords = {};
+                    const record = STATE.dailyRecords[key] || {};
+                    record.sleepStart = elements.timeLogSleepStart.value;
+                    record.sleepHours = computeSleepHoursFromRecord(record);
+                    STATE.dailyRecords[key] = record;
+                    const computed = getComputedRecordForDate(key);
+                    updateTimeLogSummary(computed);
+                });
+            }
+            if (elements.timeLogSleepEnd) {
+                elements.timeLogSleepEnd.addEventListener('input', () => {
+                    const key = getSelectedDateKey();
+                    if (!STATE.dailyRecords) STATE.dailyRecords = {};
+                    const record = STATE.dailyRecords[key] || {};
+                    record.sleepEnd = elements.timeLogSleepEnd.value;
+                    record.sleepHours = computeSleepHoursFromRecord(record);
+                    STATE.dailyRecords[key] = record;
+                    const computed = getComputedRecordForDate(key);
+                    updateTimeLogSummary(computed);
+                });
+            }
+            if (elements.timeLogLeisure) {
+                elements.timeLogLeisure.addEventListener('input', () => {
+                    const key = getSelectedDateKey();
+                    if (!STATE.dailyRecords) STATE.dailyRecords = {};
+                    const record = STATE.dailyRecords[key] || {};
+                    let leisure = parseFloat((elements.timeLogLeisure.value || '').toString().replace(',', '.'));
+                    if (isNaN(leisure) || leisure < 0) leisure = 0;
+                    record.leisure = leisure;
+                    STATE.dailyRecords[key] = record;
+                    const computed = getComputedRecordForDate(key);
+                    updateTimeLogSummary(computed);
+                });
+            }
+            if (elements.timeLogSave) {
+                elements.timeLogSave.addEventListener('click', handleTimeLogSave);
+            }
         }
 
         function showToast(msg) {
